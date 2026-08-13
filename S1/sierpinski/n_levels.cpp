@@ -42,13 +42,9 @@ Point3 midpoint(const Point3 &a, const Point3 &b)
     };
 }
 
-void build_sierpinsky_mesh(const float *base_vertices, unsigned int max_num_points, std::vector<float> &vertices)
+void append_triangle(const Point3 &a, const Point3 &b, const Point3 &c, std::vector<float> &vertices, std::vector<unsigned int> &indices)
 {
-    vertices.clear();
-
-    Point3 a{base_vertices[0], base_vertices[1], base_vertices[2]};
-    Point3 b{base_vertices[3], base_vertices[4], base_vertices[5]};
-    Point3 c{base_vertices[6], base_vertices[7], base_vertices[8]};
+    unsigned int base_index = static_cast<unsigned int>(vertices.size() / 3);
 
     vertices.push_back(a.x);
     vertices.push_back(a.y);
@@ -61,6 +57,39 @@ void build_sierpinsky_mesh(const float *base_vertices, unsigned int max_num_poin
     vertices.push_back(c.x);
     vertices.push_back(c.y);
     vertices.push_back(c.z);
+
+    indices.push_back(base_index);
+    indices.push_back(base_index + 1);
+    indices.push_back(base_index + 2);
+}
+
+void subdivide_triangle(const Point3 &a, const Point3 &b, const Point3 &c, unsigned int depth, std::vector<float> &vertices, std::vector<unsigned int> &indices)
+{
+    if (depth == 0)
+    {
+        append_triangle(a, b, c, vertices, indices);
+        return;
+    }
+
+    Point3 ab_mid = midpoint(a, b);
+    Point3 ac_mid = midpoint(a, c);
+    Point3 bc_mid = midpoint(b, c);
+
+    subdivide_triangle(a, ab_mid, ac_mid, depth - 1, vertices, indices);
+    subdivide_triangle(ab_mid, b, bc_mid, depth - 1, vertices, indices);
+    subdivide_triangle(ac_mid, bc_mid, c, depth - 1, vertices, indices);
+}
+
+void build_sierpinsky_mesh(const float *base_vertices, int depth, std::vector<float> &vertices, std::vector<unsigned int> &indices)
+{
+    vertices.clear();
+    indices.clear();
+
+    Point3 a{base_vertices[0], base_vertices[1], base_vertices[2]};
+    Point3 b{base_vertices[3], base_vertices[4], base_vertices[5]};
+    Point3 c{base_vertices[6], base_vertices[7], base_vertices[8]};
+
+    subdivide_triangle(a, b, c, depth, vertices, indices);
 }
 
 int main()
@@ -137,11 +166,12 @@ int main()
     const unsigned int depth = 5;
     std::vector<float> subdivided_vertices;
     std::vector<unsigned int> subdivided_indices;
-    build_subdivided_mesh(vertices, depth, subdivided_vertices, subdivided_indices);
+    build_sierpinsky_mesh(vertices, depth, subdivided_vertices, subdivided_indices);
 
-    unsigned int VBO, VAO;
+    unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
     
     glBindVertexArray(VAO);
 
@@ -151,13 +181,19 @@ int main()
                  subdivided_vertices.data(),
                  GL_STATIC_DRAW);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(subdivided_indices.size() * sizeof(unsigned int)),
+                 subdivided_indices.data(),
+                 GL_STATIC_DRAW);
+
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
 
-    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-    glPointSize(5.0f);
+    
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -169,7 +205,7 @@ int main()
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         
-        glDrawArrays(GL_POINTS, 0, 3);
+        glDrawElements(GL_TRIANGLES, subdivided_indices.size(), GL_UNSIGNED_INT, 0);
         
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -177,6 +213,7 @@ int main()
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
     glDeleteProgram(shaderProgram);
 
     glfwTerminate();
