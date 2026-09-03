@@ -2,12 +2,14 @@
 *.out
 *.xlaunch
 
-# Images and videos
+# Images, videos and 3D models
 *.png
 *.jpg
 *.jpeg
 *.gif
 *.mp4
+*.ply
+/bunny
 
 # Libraries
-glad/*
+/glad
