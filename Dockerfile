@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.3.1-cudnn-runtime-ubuntu24.04
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -19,10 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================
-# GLFW + OpenGL + X11
+# GLFW + OpenGL + X11 (Con soporte de renderizado por software)
 # =========================================================
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglm-dev \
     libglfw3-dev \
     libgl1-mesa-dev \
     libglu1-mesa-dev \
@@ -34,7 +35,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxi-dev \
     xauth \
     mesa-utils \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
+
+# =========================================================
+# Instalar FFMPEG
+# =========================================================
+
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # =========================================================
 # Instalar el generador GLAD 1 que tenemos en /opt/glad
@@ -53,11 +61,5 @@ RUN python3 -m pip install \
 # =========================================================
 
 WORKDIR /workspace
-
-# =========================================================
-# NVIDIA
-# =========================================================
-
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
 
 CMD ["/bin/bash"]
