@@ -8,3 +8,6 @@
 *.jpeg
 *.gif
 *.mp4
+
+# Libraries
+glad/*
