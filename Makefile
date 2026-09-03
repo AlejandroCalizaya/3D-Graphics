@@ -1,8 +1,19 @@
-APP_NAME := test
+APP_NAME := 3dgraphics
 DOCKERFILE := Dockerfile
 WORKSPACE_DIR := $(CURDIR)
 
-DISPLAY ?= :0
+
+ifeq ($(OS),Windows_NT)
+    IS_WINDOWS := 1
+else
+    IS_WSL := $(shell uname -r | grep -i microsoft)
+endif
+
+ifneq ($(strip $(IS_WINDOWS)$(IS_WSL)),)
+    DISPLAY ?= host.docker.internal:0
+else
+    DISPLAY ?= :0
+endif
 
 RUN_FILE := $(word 2,$(MAKECMDGOALS))
 
@@ -10,30 +21,21 @@ ifeq ($(RUN_FILE),)
 	RUN_FILE := main.cpp
 endif
 
+
 RUN_EXE := a.out
 
-.PHONY: build run bash clean
 
-# =========================================================
-# Construir imagen
-# =========================================================
+.PHONY: build run bash clean
 
 build:
 	docker build \
 		-f $(DOCKERFILE) \
 		-t $(APP_NAME) .
 
-# =========================================================
-# Ejecutar programa
-# =========================================================
-
 run:
-	xhost +SI:localuser:root >/dev/null 2>&1 || true
-
-	docker run --rm -it --gpus all \
+	docker run --rm -it \
 		-e DISPLAY=$(DISPLAY) \
-		-e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
-		-v /tmp/.X11-unix:/tmp/.X11-unix \
+		-e LIBGL_ALWAYS_SOFTWARE=1 \
 		-v "$(WORKSPACE_DIR)":/workspace \
 		-w /workspace \
 		$(APP_NAME) \
@@ -47,6 +49,7 @@ run:
 				--out-path /tmp/glad; \
 			g++ -std=c++17 \
 				$(RUN_FILE) \
+				shared.cpp \
 				/tmp/glad/src/glad.c \
 				-I/tmp/glad/include \
 				$$(pkg-config --cflags --libs glfw3) \
@@ -55,23 +58,14 @@ run:
 				-o $(RUN_EXE); \
 			./$(RUN_EXE)'
 
-# =========================================================
-# Entrar al contenedor
-# =========================================================
-
 bash:
-	docker run --rm -it --gpus all \
+	docker run --rm -it \
 		-e DISPLAY=$(DISPLAY) \
-		-e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
-		-v /tmp/.X11-unix:/tmp/.X11-unix \
+		-e LIBGL_ALWAYS_SOFTWARE=1 \
 		-v "$(WORKSPACE_DIR)":/workspace \
 		-w /workspace \
 		$(APP_NAME) \
 		bash
-
-# =========================================================
-# Limpiar
-# =========================================================
 
 clean:
 	docker rmi -f $(APP_NAME) || true
