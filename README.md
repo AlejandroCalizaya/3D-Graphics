@@ -15,7 +15,14 @@ Clone the official GLAD repository (master/v1 branch) directly into the root fol
 git clone https://github.com/Dav1dde/glad.git
 ```
 
-### 2. Download and Setup 3D Models
+### 2. Clone STB Library
+Clone the official STB repository directly into the root folder.
+
+```bash
+git clone https://github.com/nothings/stb.git
+```
+
+### 3. Download and Setup 3D Models
 
 Some 3D models are required for specific rendering assignments.
 
@@ -96,7 +103,9 @@ make clean
 ```text
 .
 ├── glad/             # Embedded GLAD generator sources
+├── stb/              # STB Library
 ├── bunny/            # Extracted .ply model files
+├── texture/          # All texture images
 ├── S1/               # Week 1: Hello World (Window) & Sierpinski Triangle
 ├── shared.h          # Shared helper functions and C++ generators
 ├── shared.cpp        # Shared implementation file
