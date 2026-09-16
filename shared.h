@@ -8,6 +8,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "stb/stb_image.h"
+
 #include <iostream>
 #include <cmath>
 #include <map>
@@ -31,6 +33,7 @@
 struct Vertex
 {
     float x, y, z;
+    float u, v;
 };
 
 struct Face
