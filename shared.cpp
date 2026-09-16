@@ -184,45 +184,52 @@ void buildSphere(
     std::map<std::tuple<int, int>, int> halfEdgeMap;
 
     // North pole
-    vertices.push_back({0.0f, 0.0f, 1.0f});
+    vertices.push_back({0.0f, 0.0f, 1.0f, 0.5f, 1.0f});
 
     // Rings
+    const int ringStride = numSlices + 1;
+
     for (int i = 1; i < numStacks; ++i)
     {
+        float V = 1.0f - float(i) / float(numStacks);
+
         float phi = static_cast<float>(M_PI * i / numStacks);
-        for (int j = 0; j < numSlices; ++j)
+        for (int j = 0; j <= numSlices; ++j)
         {
-            float theta = static_cast<float>(2.0 * M_PI * j / numSlices);
+            float U = float(j) / float(numSlices);
+
+            float theta = static_cast<float>(2.0 * M_PI * (j % numSlices) / numSlices);
             float x = sin(phi) * cos(theta);
             float y = sin(phi) * sin(theta);
             float z = cos(phi);
-            vertices.push_back({x, y, z});
+
+            vertices.push_back({x, y, z, U, V});
         }
     }
 
     // South pole
     int southPole = static_cast<int>(vertices.size());
-    vertices.push_back({0.0f, 0.0f, -1.0f});
+    vertices.push_back({0.0f, 0.0f, -1.0f, 0.5f, 0.0f});
 
     // Upper triangles
     for (int j = 0; j < numSlices; ++j)
     {
         int current = 1 + j;
-        int next = 1 + (j + 1) % numSlices;
+        int next = current + 1;
         addTriangle(faceIndices, halfEdges, 0, current, next, halfEdgeMap);
     }
 
     // Middle triangles
     for (int i = 0; i < numStacks - 2; ++i)
     {
-        int currentRingStart = 1 + i * numSlices;
-        int nextRingStart = currentRingStart + numSlices;
+        int currentRingStart = 1 + i * ringStride;
+        int nextRingStart = currentRingStart + ringStride;
         for (int j = 0; j < numSlices; ++j)
         {
             int current = currentRingStart + j;
-            int next = currentRingStart + (j + 1) % numSlices;
+            int next = current + 1;
             int currentBelow = nextRingStart + j;
-            int nextBelow = nextRingStart + (j + 1) % numSlices;
+            int nextBelow = currentBelow + 1;
 
             addTriangle(faceIndices, halfEdges, current, currentBelow, next, halfEdgeMap);
             addTriangle(faceIndices, halfEdges, next, currentBelow, nextBelow, halfEdgeMap);
@@ -230,11 +237,11 @@ void buildSphere(
     }
 
     // Lower triangles
-    int lastRingStart = 1 + (numStacks - 2) * numSlices;
+    int lastRingStart = 1 + (numStacks - 2) * ringStride;
     for (int j = 0; j < numSlices; ++j)
     {
         int current = lastRingStart + j;
-        int next = lastRingStart + (j + 1) % numSlices;
+        int next = current + 1;
         addTriangle(faceIndices, halfEdges, current, southPole, next, halfEdgeMap);
     }
 
@@ -615,8 +622,11 @@ void createMeshBuffers(
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, x));
     glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, u));
+    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 }
