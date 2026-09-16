@@ -10,6 +10,8 @@
 *.mp4
 *.ply
 /bunny
+/texture
 
 # Libraries
 /glad
+/stb
