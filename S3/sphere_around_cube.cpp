@@ -437,7 +437,7 @@ int main() {
 
     vector<unsigned int> sphereEdgeIndices;
 
-    buildSphere(20, 20, sphereVertices, sphereHalfEdges, sphereFaceIndices, sphereEdgeIndices);
+    buildSphere(20, 20, 0.5f, sphereVertices, sphereHalfEdges, sphereFaceIndices, sphereEdgeIndices);
 
     unsigned int cubeVAO;
     unsigned int cubeVBO;

@@ -158,7 +158,7 @@ int main()
     vector<CHE> sphereHalfEdges;
     vector<unsigned int> sphereIndices;
     vector<unsigned int> sphereEdgeIndices;
-    buildSphere(64, 64, sphereVertices, sphereHalfEdges, sphereIndices, sphereEdgeIndices);
+    buildSphere(64, 64, 0.5f, sphereVertices, sphereHalfEdges, sphereIndices, sphereEdgeIndices);
 
     unsigned int sphereVAO, sphereVBO, sphereEBO;
     unsigned int planeVAO, planeVBO, planeEBO;

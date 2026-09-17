@@ -143,7 +143,7 @@ int main() {
     vector<unsigned int> faceIndices;
     vector<unsigned int> edgeIndices;
 
-    buildSphere(50, 50, vertices, halfEdges, faceIndices, edgeIndices);
+    buildSphere(50, 50, 0.5f, vertices, halfEdges, faceIndices, edgeIndices);
 
     unsigned int VAO, VBO, EBO_Faces;
     createMeshBuffers(vertices, faceIndices, VAO, VBO, EBO_Faces);
