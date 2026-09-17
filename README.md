@@ -78,7 +78,7 @@ The Makefile automatically detects your operating system:
 
 * **Run a specific C++ file:**
 ```bash
-make run S1/window.cpp
+make run FILE=S1/window.cpp
 ```
 
 
