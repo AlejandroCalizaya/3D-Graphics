@@ -170,7 +170,7 @@ void rebuildHalfEdges(
 // ============================================================
 
 void buildSphere(
-    int numSlices, int numStacks,
+    int numSlices, int numStacks, float radius,
     std::vector<Vertex> &vertices,
     std::vector<CHE> &halfEdges,
     std::vector<unsigned int> &faceIndices,
@@ -184,7 +184,7 @@ void buildSphere(
     std::map<std::tuple<int, int>, int> halfEdgeMap;
 
     // North pole
-    vertices.push_back({0.0f, 0.0f, 1.0f, 0.5f, 1.0f});
+    vertices.push_back({0.0f, 0.0f, radius, radius / 2.0f, radius});
 
     // Rings
     const int ringStride = numSlices + 1;
@@ -199,9 +199,9 @@ void buildSphere(
             float U = float(j) / float(numSlices);
 
             float theta = static_cast<float>(2.0 * M_PI * (j % numSlices) / numSlices);
-            float x = sin(phi) * cos(theta);
-            float y = sin(phi) * sin(theta);
-            float z = cos(phi);
+            float x = radius * sin(phi) * cos(theta);
+            float y = radius * sin(phi) * sin(theta);
+            float z = radius * cos(phi);
 
             vertices.push_back({x, y, z, U, V});
         }
@@ -209,7 +209,7 @@ void buildSphere(
 
     // South pole
     int southPole = static_cast<int>(vertices.size());
-    vertices.push_back({0.0f, 0.0f, -1.0f, 0.5f, 0.0f});
+    vertices.push_back({0.0f, 0.0f, -radius, radius / 2.0f, 0.0f});
 
     // Upper triangles
     for (int j = 0; j < numSlices; ++j)

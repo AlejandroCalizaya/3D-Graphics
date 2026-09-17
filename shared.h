@@ -111,7 +111,7 @@ void rebuildHalfEdges(
 // ============================================================
 
 void buildSphere(
-    int numSlices, int numStacks,
+    int numSlices, int numStacks, float radius,
     std::vector<Vertex> &vertices,
     std::vector<CHE> &halfEdges,
     std::vector<unsigned int> &faceIndices,
