@@ -11,7 +11,10 @@
 *.ply
 /bunny
 /texture
+/fireplace_room
+/3d_models
 
 # Libraries
 /glad
 /stb
+/imgui
