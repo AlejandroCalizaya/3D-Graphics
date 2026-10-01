@@ -16,13 +16,21 @@ endif
 
 FILE ?= main.cpp
 RUN_EXE := a.out
+VIEWER_SOURCES := viewer/main.cpp viewer/Mesh.cpp viewer/Camera.cpp viewer/Renderer.cpp viewer/Ui.cpp \
+    imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/imgui_demo.cpp \
+    imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp
 
-.PHONY: build run bash clean
+BUILD_SOURCES = $(if $(filter viewer/main.cpp,$(FILE)),$(VIEWER_SOURCES) shared.cpp,$(FILE) shared.cpp)
+
+.PHONY: build viewer run bash clean
 
 build:
 	docker build \
         -f $(DOCKERFILE) \
         -t $(APP_NAME) .
+
+viewer: FILE := viewer/main.cpp
+viewer: run
 
 run:
 	docker run --rm -it \
@@ -41,10 +49,11 @@ run:
                 --generator c \
                 --out-path /tmp/glad; \
             g++ -std=c++17 \
-                $(FILE) \
-                shared.cpp \
+                $(BUILD_SOURCES) \
                 /tmp/glad/src/glad.c \
                 -I/tmp/glad/include \
+                -Iimgui \
+                -Iimgui/backends \
                 $$(pkg-config --cflags --libs glfw3) \
                 -lGL \
                 -ldl \
