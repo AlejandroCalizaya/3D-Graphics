@@ -523,7 +523,12 @@ bool loadPLY(
     std::string line;
     int numVertices = 0;
     int numFaces = 0;
+    int xProperty = -1;
+    int yProperty = -1;
+    int zProperty = -1;
+    int vertexPropertyCount = 0;
     bool headerEnded = false;
+    bool asciiFormat = false;
 
     while (std::getline(file, line))
     {
@@ -531,11 +536,30 @@ bool loadPLY(
         std::string token;
         ss >> token;
 
-        if (token == "element")
+        if (token == "format")
+        {
+            ss >> token;
+            asciiFormat = token == "ascii";
+        }
+        else if (token == "element")
         {
             ss >> token;
             if (token == "vertex") ss >> numVertices;
             else if (token == "face") ss >> numFaces;
+        }
+        else if (token == "property")
+        {
+            std::string propertyType;
+            std::string propertyName;
+            ss >> propertyType;
+            if (propertyType != "list")
+            {
+                ss >> propertyName;
+                if (propertyName == "x") xProperty = vertexPropertyCount;
+                else if (propertyName == "y") yProperty = vertexPropertyCount;
+                else if (propertyName == "z") zProperty = vertexPropertyCount;
+                ++vertexPropertyCount;
+            }
         }
         else if (token == "end_header")
         {
@@ -544,7 +568,9 @@ bool loadPLY(
         }
     }
 
-    if (!headerEnded) return false;
+    if (!headerEnded || !asciiFormat || numVertices <= 0 || numFaces <= 0 ||
+        xProperty < 0 || yProperty < 0 || zProperty < 0)
+        return false;
 
     vertices.clear();
     faceIndices.clear();
@@ -555,8 +581,16 @@ bool loadPLY(
     {
         std::getline(file, line);
         std::stringstream ss(line);
-        float x, y, z;
-        ss >> x >> y >> z;
+        std::vector<float> properties;
+        float propertyValue;
+        while (ss >> propertyValue)
+            properties.push_back(propertyValue);
+        if (static_cast<int>(properties.size()) <= std::max({xProperty, yProperty, zProperty}))
+            return false;
+
+        const float x = properties[xProperty];
+        const float y = properties[yProperty];
+        const float z = properties[zProperty];
 
         vertices.push_back({x, y, z});
 
@@ -571,6 +605,8 @@ bool loadPLY(
 
     glm::vec3 center = (minBound + maxBound) * 0.5f;
     float maxDim = std::max({maxBound.x - minBound.x, maxBound.y - minBound.y, maxBound.z - minBound.z});
+    if (maxDim <= 0.0f)
+        return false;
     float scale = 1.8f / maxDim;
 
     for (auto &v : vertices)
@@ -585,18 +621,25 @@ bool loadPLY(
         std::getline(file, line);
         std::stringstream ss(line);
         int nIndices;
-        ss >> nIndices;
+        if (!(ss >> nIndices) || nIndices < 3)
+            return false;
 
-        if (nIndices == 3)
+        std::vector<unsigned int> polygon(static_cast<size_t>(nIndices));
+        for (unsigned int &index : polygon)
         {
-            int idx0, idx1, idx2;
-            ss >> idx0 >> idx1 >> idx2;
-            faceIndices.push_back(idx0);
-            faceIndices.push_back(idx1);
-            faceIndices.push_back(idx2);
+            if (!(ss >> index) || index >= vertices.size())
+                return false;
+        }
+        for (int j = 1; j + 1 < nIndices; ++j)
+        {
+            faceIndices.push_back(polygon[0]);
+            faceIndices.push_back(polygon[j]);
+            faceIndices.push_back(polygon[j + 1]);
         }
     }
 
+    if (faceIndices.empty())
+        return false;
     rebuildHalfEdges(halfEdges, faceIndices);
     return true;
 }
