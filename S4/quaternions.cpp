@@ -1,115 +1,13 @@
 #include "../shared.h"
 
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-
 const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 800;
 
-class camera
-{
-public:
-    explicit camera(float distance = 8.0f)
-        : distance_(distance), orientation_(1.0f, 0.0f, 0.0f, 0.0f), target_(0.0f), dragging_(false),
-          animated_(true), animationTime_(0.0f), viewportWidth_(SCR_WIDTH), viewportHeight_(SCR_HEIGHT)
-    {
-    }
+const char *VIDEO_FILE = "quaternions.mp4";
+const int VIDEO_FPS = 30;
+const double VIDEO_SECONDS = 30.0;
 
-    void setViewport(int width, int height)
-    {
-        viewportWidth_ = width;
-        viewportHeight_ = height;
-    }
-
-    void beginDrag(double x, double y)
-    {
-        dragging_ = true;
-        lastArcballPoint_ = arcballPoint(x, y);
-    }
-
-    void drag(double x, double y)
-    {
-        if (!dragging_ || animated_)
-            return;
-
-        const glm::vec3 currentPoint = arcballPoint(x, y);
-        const glm::vec3 axis = glm::cross(lastArcballPoint_, currentPoint);
-        const float dotProduct = glm::clamp(glm::dot(lastArcballPoint_, currentPoint), -1.0f, 1.0f);
-        if (glm::length(axis) > 0.00001f)
-            orientation_ = glm::normalize(glm::angleAxis(std::acos(dotProduct), glm::normalize(axis)) * orientation_);
-        lastArcballPoint_ = currentPoint;
-    }
-
-    void endDrag()
-    {
-        dragging_ = false;
-    }
-
-    void zoom(double offset)
-    {
-        distance_ = glm::clamp(distance_ - static_cast<float>(offset) * 0.65f, 2.0f, 20.0f);
-    }
-
-    void update(float deltaTime)
-    {
-        if (animated_) {
-            animationTime_ += deltaTime;
-            orientation_ = glm::angleAxis(animationTime_ * 0.35f, glm::vec3(0.0f, 1.0f, 0.0f)) *
-                           glm::angleAxis(glm::sin(animationTime_ * 0.65f) * 0.22f, glm::vec3(1.0f, 0.0f, 0.0f));
-        }
-    }
-
-    void setAnimated(bool animated)
-    {
-        animated_ = animated;
-        dragging_ = false;
-    }
-
-    void toggleAnimated()
-    {
-        setAnimated(!animated_);
-    }
-
-    bool isAnimated() const
-    {
-        return animated_;
-    }
-
-    glm::mat4 viewMatrix() const
-    {
-        return glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -distance_)) * glm::mat4_cast(orientation_) *
-               glm::translate(glm::mat4(1.0f), -target_);
-    }
-
-    glm::vec3 position() const
-    {
-        return target_ + glm::inverse(orientation_) * glm::vec3(0.0f, 0.0f, distance_);
-    }
-
-private:
-    glm::vec3 arcballPoint(double x, double y) const
-    {
-        const float normalizedX = static_cast<float>(2.0 * x / viewportWidth_ - 1.0);
-        const float normalizedY = static_cast<float>(1.0 - 2.0 * y / viewportHeight_);
-        glm::vec3 point(normalizedX, normalizedY, 0.0f);
-        const float lengthSquared = point.x * point.x + point.y * point.y;
-        if (lengthSquared <= 1.0f)
-            point.z = glm::sqrt(1.0f - lengthSquared);
-        else
-            point = glm::normalize(point);
-        return glm::normalize(point);
-    }
-
-    float distance_;
-    glm::quat orientation_;
-    glm::vec3 target_;
-    glm::vec3 lastArcballPoint_;
-    bool dragging_;
-    bool animated_;
-    float animationTime_;
-    int viewportWidth_;
-    int viewportHeight_;
-};
+const glm::vec3 SCENE_CENTER(0.0f, 0.0f, -4.75f);
 
 const char *vertexShaderSource = R"(
 #version 330 core
@@ -143,15 +41,15 @@ void main()
 }
 )";
 
-void updateWindowTitle(GLFWwindow *window, const camera &activeCamera, bool perspectiveProjection)
+void updateWindowTitle(GLFWwindow *window, const camera &activeCamera)
 {
-    const char *projectionName = perspectiveProjection ? "Perspectiva" : "Ortografica";
+    const char *projectionName = activeCamera.isPerspective() ? "Perspectiva" : "Ortografica";
     const char *cameraMode = activeCamera.isAnimated() ? "Animada" : "Arcball";
     std::string title = "Quaternions: ";
     title += cameraMode;
     title += " - ";
     title += projectionName;
-    title += " [A camara, B proyeccion]";
+    title += " [A camara, B proyeccion, R reset, rueda zoom]";
     glfwSetWindowTitle(window, title.c_str());
 }
 
@@ -163,8 +61,9 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "S4 - Quaternions", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Quaternions", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -177,7 +76,7 @@ int main()
         return -1;
     }
 
-    camera activeCamera;
+    camera activeCamera(SCENE_CENTER, 14.0f);
     glfwSetWindowUserPointer(window, &activeCamera);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetMouseButtonCallback(window, [](GLFWwindow *currentWindow, int button, int action, int) {
@@ -187,9 +86,10 @@ int main()
         double x;
         double y;
         glfwGetCursorPos(currentWindow, &x, &y);
-        if (action == GLFW_PRESS)
+        if (action == GLFW_PRESS) {
             activeCamera->beginDrag(x, y);
-        else if (action == GLFW_RELEASE)
+            updateWindowTitle(currentWindow, *activeCamera);
+        } else if (action == GLFW_RELEASE)
             activeCamera->endDrag();
     });
     glfwSetCursorPosCallback(window, [](GLFWwindow *currentWindow, double x, double y) {
@@ -197,6 +97,22 @@ int main()
     });
     glfwSetScrollCallback(window, [](GLFWwindow *currentWindow, double, double yOffset) {
         static_cast<camera *>(glfwGetWindowUserPointer(currentWindow))->zoom(yOffset);
+    });
+    glfwSetKeyCallback(window, [](GLFWwindow *currentWindow, int key, int, int action, int) {
+        if (action != GLFW_PRESS)
+            return;
+        camera *activeCamera = static_cast<camera *>(glfwGetWindowUserPointer(currentWindow));
+        if (key == GLFW_KEY_ESCAPE)
+            glfwSetWindowShouldClose(currentWindow, true);
+        else if (key == GLFW_KEY_A)
+            activeCamera->toggleAnimated();
+        else if (key == GLFW_KEY_B)
+            activeCamera->toggleProjection();
+        else if (key == GLFW_KEY_R)
+            activeCamera->reset();
+        else
+            return;
+        updateWindowTitle(currentWindow, *activeCamera);
     });
 
     glEnable(GL_DEPTH_TEST);
@@ -218,43 +134,32 @@ int main()
     const int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     const int objectColorLoc = glGetUniformLocation(shaderProgram, "objectColor");
     const int cameraPositionLoc = glGetUniformLocation(shaderProgram, "cameraPosition");
-    bool perspectiveProjection = true;
-    bool projectionKeyWasPressed = false;
-    bool cameraKeyWasPressed = false;
     float lastFrame = static_cast<float>(glfwGetTime());
-    updateWindowTitle(window, activeCamera, perspectiveProjection);
+    updateWindowTitle(window, activeCamera);
+
+    int width;
+    int height;
+    glfwGetFramebufferSize(window, &width, &height);
+    VideoRecorder recorder;
+    recorder.start(VIDEO_FILE, width, height, VIDEO_FPS, VIDEO_SECONDS);
 
     while (!glfwWindowShouldClose(window)) {
         const float currentFrame = static_cast<float>(glfwGetTime());
         activeCamera.update(currentFrame - lastFrame);
         lastFrame = currentFrame;
 
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, true);
+        int windowWidth;
+        int windowHeight;
+        glfwGetWindowSize(window, &windowWidth, &windowHeight);
+        activeCamera.setViewport(windowWidth, windowHeight);
 
-        const bool projectionKeyPressed = glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS;
-        if (projectionKeyPressed && !projectionKeyWasPressed)
-            perspectiveProjection = !perspectiveProjection;
-        projectionKeyWasPressed = projectionKeyPressed;
-
-        const bool cameraKeyPressed = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
-        if (cameraKeyPressed && !cameraKeyWasPressed)
-            activeCamera.toggleAnimated();
-        cameraKeyWasPressed = cameraKeyPressed;
-
-        int width;
-        int height;
         glfwGetFramebufferSize(window, &width, &height);
-        activeCamera.setViewport(width, height);
-        updateWindowTitle(window, activeCamera, perspectiveProjection);
         glViewport(0, 0, width, height);
         glClearColor(0.06f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         const float aspect = static_cast<float>(width) / static_cast<float>(height);
-        const glm::mat4 projection = perspectiveProjection
-                                         ? glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f)
-                                         : glm::ortho(-5.0f * aspect, 5.0f * aspect, -5.0f, 5.0f, 0.1f, 100.0f);
+        const glm::mat4 projection = activeCamera.projectionMatrix(aspect);
         const glm::mat4 view = activeCamera.viewMatrix();
         const glm::vec3 cameraPosition = activeCamera.position();
 
@@ -276,10 +181,13 @@ int main()
         glUniform3f(objectColorLoc, 0.12f, 0.45f, 0.95f);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereFaces.size()), GL_UNSIGNED_INT, nullptr);
 
+        recorder.capture(glfwGetTime());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    recorder.stop();
     glDeleteVertexArrays(1, &sphereVAO);
     glDeleteBuffers(1, &sphereVBO);
     glDeleteBuffers(1, &sphereEBO);

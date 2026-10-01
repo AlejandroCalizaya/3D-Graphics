@@ -3,6 +3,12 @@
 const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 800;
 
+const char *VIDEO_FILE = "placing_camera.mp4";
+const int VIDEO_FPS = 30;
+const double VIDEO_SECONDS = 15.0;
+
+const glm::vec3 SCENE_CENTER(0.0f, 0.0f, -4.75f);
+
 const char *vertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
@@ -36,6 +42,14 @@ void main()
 }
 )";
 
+glm::vec3 animatedCameraPosition(float time)
+{
+    const float angle = time * 0.42f;
+    const float radius = 13.0f + 3.0f * std::sin(time * 0.5f);
+    const float height = 1.0f + 3.5f * std::sin(time * 0.3f);
+    return SCENE_CENTER + glm::vec3(radius * std::sin(angle), height, radius * std::cos(angle));
+}
+
 void updateWindowTitle(GLFWwindow *window, bool perspectiveProjection)
 {
     const char *projectionName = perspectiveProjection ? "Perspectiva" : "Ortografica";
@@ -53,8 +67,9 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "S4 - Placing Camera", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Placing Camera", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -89,46 +104,44 @@ int main()
     const int cameraPositionLoc = glGetUniformLocation(shaderProgram, "cameraPosition");
 
     bool perspectiveProjection = true;
-    bool projectionKeyWasPressed = false;
     bool projectionButtonWasPressed = false;
     updateWindowTitle(window, perspectiveProjection);
+
+    int width;
+    int height;
+    glfwGetFramebufferSize(window, &width, &height);
+    VideoRecorder recorder;
+    recorder.start(VIDEO_FILE, width, height, VIDEO_FPS, VIDEO_SECONDS);
 
     while (!glfwWindowShouldClose(window)) {
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
         const bool previousProjection = perspectiveProjection;
-        const bool projectionKeyPressed = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
-        if (projectionKeyPressed && !projectionKeyWasPressed)
-            perspectiveProjection = !perspectiveProjection;
         if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
             perspectiveProjection = false;
         if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
             perspectiveProjection = true;
         const bool projectionButtonPressed = glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS;
-        if (projectionButtonPressed && !projectionButtonWasPressed) {
+        if (projectionButtonPressed && !projectionButtonWasPressed)
             perspectiveProjection = !perspectiveProjection;
-        }
         if (perspectiveProjection != previousProjection)
             updateWindowTitle(window, perspectiveProjection);
-        projectionKeyWasPressed = projectionKeyPressed;
         projectionButtonWasPressed = projectionButtonPressed;
 
-        int width;
-        int height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
         glClearColor(0.06f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Cámara: posición animada mirando siempre al centro de la escena
         const float time = static_cast<float>(glfwGetTime());
-        const glm::vec3 target(0.0f, 0.0f, -4.0f);
-        const glm::vec3 cameraPosition(0.0f, 0.0f, 4.0f);
-        const glm::mat4 view = glm::lookAt(cameraPosition, target, glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::vec3 cameraPosition = animatedCameraPosition(time);
+        const glm::mat4 view = glm::lookAt(cameraPosition, SCENE_CENTER, glm::vec3(0.0f, 1.0f, 0.0f));
         const float aspect = static_cast<float>(width) / static_cast<float>(height);
         const glm::mat4 projection = perspectiveProjection
                                          ? glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f)
-                                         : glm::ortho(-5.0f * aspect, 5.0f * aspect, -5.0f, 5.0f, 0.1f, 100.0f);
+                                         : glm::ortho(-6.0f * aspect, 6.0f * aspect, -6.0f, 6.0f, 0.1f, 100.0f);
 
         glUseProgram(shaderProgram);
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -148,10 +161,13 @@ int main()
         glUniform3f(objectColorLoc, 0.12f, 0.45f, 0.95f);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(sphereFaces.size()), GL_UNSIGNED_INT, nullptr);
 
+        recorder.capture(glfwGetTime());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    recorder.stop();
     glDeleteVertexArrays(1, &sphereVAO);
     glDeleteBuffers(1, &sphereVBO);
     glDeleteBuffers(1, &sphereEBO);
