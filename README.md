@@ -63,7 +63,10 @@ make build
 
 ## 🚀 Running the Code
 
-You can run any `.cpp` file directly inside the containerized environment using `make`.
+There are two ways to run the implementations:
+
+* The exercises in `S1/` through `S6/` are standalone programs and can be compiled one at a time.
+* `viewer/` is the integrated application. It brings the reusable functionality together in one interactive OpenGL window instead of requiring a different executable for each exercise.
 
 ### Cross-Platform Execution
 
@@ -75,6 +78,20 @@ The Makefile automatically detects your operating system:
 > **Note for Windows Users:** Make sure your X Server (e.g., XLaunch or VcXsrv) is running with *"Disable access control"* checked before launching the container.
 
 ### Commands
+
+* **Run the integrated viewer:**
+```bash
+make viewer
+```
+
+The viewer starts with an empty scene. From its ImGui interface you can create cubes and spheres, load `.ply` models or an `.obj` scene, select and remove objects, edit transforms and colors, switch between perspective and orthographic projection, and change wireframe, depth testing, and background settings. It also exposes the main mesh-processing and geometry features implemented in the course:
+
+* QEM mesh simplification, with the option to restore the original mesh.
+* Fast Marching visualization on a selected mesh vertex.
+* OBJ materials and diffuse textures when they are present in the loaded scene.
+* Camera orbit and zoom, basic material lighting, and per-object visibility.
+
+The standalone programs remain useful for inspecting each assignment in isolation. The integrated viewer reuses the common geometry and mesh code, but it does not replace those individual examples or provide a separate UI for every historical exercise (for example, the Sierpinski and shadow demos).
 
 * **Run a specific C++ file:**
 ```bash
@@ -107,6 +124,12 @@ make clean
 ├── bunny/            # Extracted .ply model files
 ├── texture/          # All texture images
 ├── S1/               # Week 1: Hello World (Window) & Sierpinski Triangle
+├── S2/               # Meshes, spheres, bunny, and QEM simplification examples
+├── S3/               # Fast Marching and geometry examples
+├── S4/               # Camera placement and quaternion examples
+├── S5/               # Illumination and shadow examples
+├── S6/               # Scene loading and texture examples
+├── viewer/            # Integrated interactive viewer for the shared functionality
 ├── shared.h          # Shared helper functions and C++ generators
 ├── shared.cpp        # Shared implementation file
 ├── Dockerfile        # Environment specification (OpenGL, GLFW, GLM, FFmpeg)
